@@ -1,6 +1,3 @@
-# QRB2210-BSP-WIP
-
-
 # QRB2210 Windows BSP scaffold
 
 **Status: scaffold, not a bootable BSP.** SoC values were taken from the supplied
@@ -24,13 +21,30 @@ has been compiled or run on hardware.
 - UART0 0x04A80000 SPI 327; UART4 0x04A90000 SPI 331
 - GICv3: GICD 0x0F200000, GICR 0x0F300000; GCC 0x01400000; SMMU-500 0x0C600000
 
+## Facts taken from qrb2210-rb1.dts (RB1 board)
+- Debug console: UART4 (serial0, 115200n8, `qcom,geni-debug-uart`), FTDI to Micro-USB
+- SDC1: non-removable eMMC, CQE supported, no SD/SDIO. VMMC = PM4125 L20, VQMMC = PM4125 L14 (1.8 V, must never be turned off)
+- SDC2: SD slot, card-detect GPIO 88 active low, VMMC = L21, VQMMC = L4
+- Regulators: PM4125 behind the **RPM** (SMD, `qcom,rpm-pm2250-regulators`), not RPMh
+- Bluetooth: UART3 (WCN3950), IRQ SPI 330 (GSIV 362), enable GPIO 87
+- Also enabled: GPU, MDSS/DSI, HDMI bridge, USB, Wi-Fi, SPI5, I2C2 (GPIO bit-bang)
+
 ## Layout
 ```
-acpi/dsdt.asl            ACPI skeleton: CPUs, GIC, timer, UART, SDC1
+acpi/dsdt.asl            ACPI skeleton: CPUs, UART4, SDC1, SDC2
+acpi/tables/madt.asl     MADT: 4x GICC, GICD 0x0F200000, GICR 0x0F300000
+acpi/tables/gtdt.asl     GTDT: arch timer INTIDs 17/18/19/16
+acpi/tables/dbg2.asl     DBG2: UART4 debug port (subtype TODO)
 drivers/emmc/emmc.c      KMDF SDHCI-style eMMC host core (MMIO, IRQ, ADMA2)
 drivers/emmc/emmc.inf    ARM64 INF
+drivers/qcompwr/         Power service: clock/reset/regulator IOCTL interface + board policy
+acpi/tables/fadt.aslc   FADT (EDK2 C source, HW-reduced, PSCI/SMC; not compiled)
+tools/build_acpi.sh      iasl build for the DSDT and data tables
+docs/SDPORT_PLAN.md      How to split emmc.c for the sdport storage model
+acpi/tables/iort.asl     IORT: SMMU-500 + SDC1/SDC2 stream IDs (generated, unvalidated)
 ```
-Not included (need vendor input): PEP/clock+regulator driver, TLMM GPIO
+Not included: FACS, UEFI platform package, GpioClx driver for TLMM, I2C/SPI/USB/display.
+Need vendor input: PEP/clock+regulator driver, TLMM GPIO
 driver, PMIC, USB DWC3 glue, UEFI platform package, FFU/image config.
 
 ## Bring-up order

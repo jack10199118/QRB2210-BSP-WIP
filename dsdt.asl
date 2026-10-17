@@ -17,6 +17,39 @@ DefinitionBlock ("dsdt.aml", "DSDT", 2, "QCOM  ", "QRB2210 ", 1)
         Device (CPU2) { Name (_HID, "ACPI0007") Name (_UID, 2) }
         Device (CPU3) { Name (_HID, "ACPI0007") Name (_UID, 3) }
 
+        // Clock/regulator service. GCC registers; regulators go through the RPM (TODO(HW)).
+        Device (PWR0)
+        {
+            Name (_HID, "QCOM0002")          // must match qcompwr.inf
+            Name (_UID, 0)
+            Method (_CRS, 0, NotSerialized)
+            {
+                Name (RBUF, ResourceTemplate ()
+                {
+                    Memory32Fixed (ReadWrite, 0x01400000, 0x001F0000)   // GCC
+                })
+                Return (RBUF)
+            }
+        }
+
+        // TLMM GPIO/pinctrl: 0x00500000 (0x300000), SPI 227 -> GSIV 259, 127 pins.
+        // Needs a GpioClx driver (not written). Reserved here so other devices can
+        // later reference it with GpioInt/GpioIo.
+        Device (GPI0)
+        {
+            Name (_HID, "QCOM0003")          // TODO: INF + GpioClx driver
+            Name (_UID, 0)
+            Method (_CRS, 0, NotSerialized)
+            {
+                Name (RBUF, ResourceTemplate ()
+                {
+                    Memory32Fixed (ReadWrite, 0x00500000, 0x00300000)
+                    Interrupt (ResourceConsumer, Level, ActiveHigh, Shared) { 259 }
+                })
+                Return (RBUF)
+            }
+        }
+
         // GENI UART4: 0x04A90000, SPI 331 -> GSIV 363.
         // RB1: serial0 / stdout, "qcom,geni-debug-uart", wired to the Micro-USB
         // port through an FTDI chip. Use this one for KD (DBG2 entry).
@@ -41,6 +74,7 @@ DefinitionBlock ("dsdt.aml", "DSDT", 2, "QCOM  ", "QRB2210 ", 1)
         {
             Name (_HID, "QCOM0001")          // must match emmc.inf
             Name (_UID, 1)
+            Name (_DEP, Package () { \_SB.PWR0 })   // power service must start first
             Name (_CCA, 0)                   // TODO(HW): confirm DMA coherency (0 = non-coherent, safe)
             Method (_CRS, 0, NotSerialized)
             {
