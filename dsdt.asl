@@ -18,7 +18,8 @@ DefinitionBlock ("dsdt.aml", "DSDT", 2, "QCOM  ", "QRB2210 ", 1)
         Device (CPU3) { Name (_HID, "ACPI0007") Name (_UID, 3) }
 
         // GENI UART4: 0x04A90000, SPI 331 -> GSIV 363.
-        // TODO(BOARD): confirm which UART is the debug console (board DTS).
+        // RB1: serial0 / stdout, "qcom,geni-debug-uart", wired to the Micro-USB
+        // port through an FTDI chip. Use this one for KD (DBG2 entry).
         Device (UAR4)
         {
             Name (_HID, "QCOM0000")          // TODO: real HID + serial driver
@@ -53,8 +54,30 @@ DefinitionBlock ("dsdt.aml", "DSDT", 2, "QCOM  ", "QRB2210 ", 1)
             }
             // Clocks (GCC): SDCC1_AHB, SDCC1_APPS, XO, SDCC1_ICE_CORE; reset GCC_SDCC1_BCR;
             // power domain VDDCX; OPPs 100/192/384 MHz. All must be sequenced by a
-            // PEP/power driver; ACPI cannot do this by itself. TODO(BOARD): eMMC
-            // vcc/vccq regulators from the board DTS.
+            // PEP/power driver; ACPI cannot do this by itself.
+            // RB1 board (qrb2210-rb1.dts): non-removable eMMC, CQE supported.
+            //   VMMC  = PM4125 L20 (2.4-3.6 V, switchable)
+            //   VQMMC = PM4125 L14 (1.8 V fixed, "broken hardware, never turn it off")
+        }
+
+        // SDC2 (SD slot, 4-bit): 0x04784000, hc_irq SPI 350 (GSIV 382), pwr_irq SPI 353 (GSIV 385)
+        // Card detect: TLMM GPIO 88, active low. VMMC = PM4125 L21 (2.96-3.3 V),
+        // VQMMC = PM4125 L4 (1.8-2.7 V; capped to disable 3 V signalling).
+        Device (SDC2)
+        {
+            Name (_HID, "QCOM0001")          // same controller family, same driver
+            Name (_UID, 2)
+            Name (_CCA, 0)
+            Method (_CRS, 0, NotSerialized)
+            {
+                Name (RBUF, ResourceTemplate ()
+                {
+                    Memory32Fixed (ReadWrite, 0x04784000, 0x1000)
+                    Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 382 }
+                    Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 385 }
+                })
+                Return (RBUF)
+            }
         }
     }
 }
