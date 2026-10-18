@@ -1,4 +1,8 @@
-# QRB2210 Windows BSP scaffold
+# Windows BSP scaffold: Arduino UNO Q (Qualcomm Dragonwing QRB2210)
+
+**Target board: Arduino UNO Q ("imola").** Board data comes from the upstream `qrb2210-arduino-imola.dts`
+(Linux patch series v3, Nov 2025: re-check it against the final kernel file). The Qualcomm RB1 table is kept for
+reference (`-DQCOM_BOARD_RB1`).
 
 **Status: scaffold, not a bootable BSP.** SoC values were taken from the supplied
 `qcm2290.dtsi`. Remaining `TODO(HW)`/`TODO(BOARD)` items need the board DTS and
@@ -22,17 +26,26 @@ has been compiled or run on hardware.
 - UART0 0x04A80000 SPI 327; UART4 0x04A90000 SPI 331
 - GICv3: GICD 0x0F200000, GICR 0x0F300000; GCC 0x01400000; SMMU-500 0x0C600000
 
-## Facts taken from qrb2210-rb1.dts (RB1 board)
-- Debug console: UART4 (serial0, 115200n8, `qcom,geni-debug-uart`), FTDI to Micro-USB
-- SDC1: non-removable eMMC, CQE supported, no SD/SDIO. VMMC = PM4125 L20, VQMMC = PM4125 L14 (1.8 V, must never be turned off)
-- SDC2: SD slot, card-detect GPIO 88 active low, VMMC = L21, VQMMC = L4
-- Regulators: PM4125 behind the **RPM** (SMD, `qcom,rpm-pm2250-regulators`), not RPMh
-- Bluetooth: UART3 (WCN3950), IRQ SPI 330 (GSIV 362), enable GPIO 87
-- Also enabled: GPU, MDSS/DSI, HDMI bridge, USB, Wi-Fi, SPI5, I2C2 (GPIO bit-bang)
+## Facts taken from qrb2210-arduino-imola.dts (UNO Q, target)
+- Console: UART4 (serial0, 115200n8, `qcom,geni-debug-uart`) on the JCTL header, **1.8 V logic**
+- Storage: SDC1 eMMC only (non-removable, CQE, HS200/HS400 at 1.8 V, no SD/SDIO). **No SD slot.**
+  VMMC = PM4125 L20 (2.4-3.6 V); VQMMC = L14 (1.8 V, "Broken hardware, never turn it off!")
+- Always-on rails the service must never switch off: L2 (LPDDR4X VDD2), L3 (VDDQ), L6 (DRAM PLL), L11, L14, L15, plus
+  their parents S3 and S4. L21 is USB HS, L4 is unused.
+- Regulators: PM4125 behind the **RPM** (`qcom,rpm-pm2250-regulators`), not RPMh
+- UART3 = Bluetooth (WCN3988, 3 Mbaud), enable GPIO 87; UART2 and SPI5 (CS GPIO 17) link to the STM32U585 MCU
+- GPIOs: volume keys 96 and 36; LEDs 47 (BT), 39 (panic), 40 (WLAN), 60/42/41 (user RGB)
+- Display: no MDSS node enabled upstream and the continuous-splash region is deleted: display bring-up is unknown
+- RAM: 2 or 4 GB LPDDR4X; XO board clock 38.4 MHz
+- Boot chain observed on a real board (zenn.dev log): XBL, Qualcomm UEFI, then **U-Boot 2025.07** ("Arduino SA,Imola"),
+  then the Linux EFI stub. Secure Boot: Off; boot device eMMC. Recovery: EDL with `qdl` and a Firehose programmer.
+
+## Facts that were RB1-only (do not apply to the UNO Q)
+SD slot with card-detect GPIO 88, SDC2 resources, display/HDMI bridge, FTDI console, I2C2 bit-bang.
 
 ## Layout
 ```
-acpi/dsdt.asl            ACPI skeleton: CPUs, UART4, SDC1, SDC2
+acpi/dsdt.asl            ACPI skeleton: CPUs, power service, TLMM, UART4, SDC1 (no SD slot)
 acpi/tables/madt.asl     MADT: 4x GICC, GICD 0x0F200000, GICR 0x0F300000
 acpi/tables/gtdt.asl     GTDT: arch timer INTIDs 17/18/19/16
 acpi/tables/dbg2.asl     DBG2: UART4 debug port (subtype TODO)
@@ -44,7 +57,8 @@ acpi/tables/fadt.aslc   FADT (EDK2 C source, HW-reduced, PSCI/SMC; not compiled)
 tools/build_acpi.sh      iasl build for the DSDT and data tables
 docs/COMPAT_LAYER_DESIGN.md  Layered platform design, milestones, open decisions
 docs/SDPORT_PLAN.md      How to split emmc.c for the sdport storage model
-acpi/tables/iort.asl     IORT: SMMU-500 + SDC1/SDC2 stream IDs (generated, unvalidated)
+acpi/tables/iort.asl     IORT: SMMU-500 + SDC1 stream ID (made by tools/gen_iort.py; unvalidated by iasl)
+docs/EDK2_PLAN_UNOQ.md   Plan for an EDK2 payload loaded by the board's U-Boot
 ```
 Not included: FACS, UEFI platform package, GpioClx driver for TLMM, I2C/SPI/USB/display.
 Need vendor input: PEP/clock+regulator driver, TLMM GPIO
