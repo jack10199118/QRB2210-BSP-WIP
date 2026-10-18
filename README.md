@@ -6,9 +6,10 @@ Qualcomm documentation. Nothing here
 has been compiled or run on hardware.
 
 ## Blocking risks (resolve before writing more code)
-1. **CPU level.** QRB2210 = 4x Cortex-A53 (ARMv8.0). Recent Windows 11 ARM64
-   builds require newer ISA features (e.g. ARMv8.1 atomics). Confirm against
-   current Microsoft hardware requirements. This may be a hard stop.
+1. **Target OS.** Cortex-A53 (ARMv8.0) was officially supported by Windows 10 IoT Core (DragonBoard 410c).
+   However, IoT Core is retired and its builds were, as far as I recall, 32-bit ARM, while this project assumes
+   ARM64. Newer Windows 11 ARM64 releases may require newer ISA features (unverified). Decide the OS image and
+   architecture first.
 2. **Firmware.** XBL/TZ/hypervisor/UEFI are Qualcomm-signed and NDA-gated.
    You need Qualcomm to supply (or sign) a boot chain that can load a UEFI
    capable of booting Windows. Secure boot keys/fuses are board specific.
@@ -37,9 +38,11 @@ acpi/tables/gtdt.asl     GTDT: arch timer INTIDs 17/18/19/16
 acpi/tables/dbg2.asl     DBG2: UART4 debug port (subtype TODO)
 drivers/emmc/emmc.c      KMDF SDHCI-style eMMC host core (MMIO, IRQ, ADMA2)
 drivers/emmc/emmc.inf    ARM64 INF
-drivers/qcompwr/         Power service: clock/reset/regulator IOCTL interface + board policy
+drivers/tlmm/            TLMM pin/GPIO core: pull, function, drive, direction, pin ownership (host-tested; no GpioClx shell, no interrupts)
+drivers/qcompwr/         Resource service: name-based, ref-counted, per-handle ownership (qcom_res.*, host-tested)
 acpi/tables/fadt.aslc   FADT (EDK2 C source, HW-reduced, PSCI/SMC; not compiled)
 tools/build_acpi.sh      iasl build for the DSDT and data tables
+docs/COMPAT_LAYER_DESIGN.md  Layered platform design, milestones, open decisions
 docs/SDPORT_PLAN.md      How to split emmc.c for the sdport storage model
 acpi/tables/iort.asl     IORT: SMMU-500 + SDC1/SDC2 stream IDs (generated, unvalidated)
 ```
